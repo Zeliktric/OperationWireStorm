@@ -1,5 +1,15 @@
 # Operation WIRE STORM Submission
 
+## Prerequisites
+Download `gcc`:
+```
+$  sudo apt install gcc
+```
+Download `make`:
+```
+$ sudo apt install make
+```
+
 ## Build
 To build and compile the server, enter:
 ```

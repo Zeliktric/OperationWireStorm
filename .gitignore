@@ -1,0 +1,10 @@
+# Compiled files
+server
+server.o
+
+# Tests
+tests/
+tests2/
+
+# Other
+.vscode/

@@ -148,14 +148,14 @@ void SendPacket(unsigned char *data, int length, int client)
  */
 void PrintPacket(const unsigned char *data, int length)
 {
-    printf("\n === PACKET %ld HEADER ===\n", packetCount);
+    printf("\n === PACKET %d HEADER ===\n", packetCount);
 
     for (int i = 0; i < HEADER_SIZE; i++)
     {
         printf("%02x ", data[i]);
     }
 
-    printf("\n === PACKET %ld DATA == \n", packetCount);
+    printf("\n === PACKET %d DATA == \n", packetCount);
     // Decode Packet Data (Skipping over the header)
     int data_bytes = length - HEADER_SIZE;
     const unsigned char *payload = data + HEADER_SIZE;

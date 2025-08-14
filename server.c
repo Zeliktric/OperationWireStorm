@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include <unistd.h>
 #include <inttypes.h>
@@ -25,14 +26,14 @@
 #pragma endregion
 #pragma region Global Variables
 
-int packetCount = 0,
-    packetValidated = 1,
-    debug = 0; // Whether extra info such as packet validation error messages and raw packet printing should be output or not
-volatile int loop = 1;
+int packetCount = 0;
+bool packetValidated = true,
+    debug = false; // Whether extra info such as packet validation error messages and raw packet printing should be output or not
+volatile bool loop = true;
 
 // File descriptors for source & dest sockets and connections
-    int sourceSocket, destSocket;
-    int sourceConn, destConn;
+int sourceSocket, destSocket;
+int sourceConn, destConn;
 
 #pragma endregion
 #pragma region Server Close
@@ -50,7 +51,7 @@ void CloseFds()
 void Handler(int signal)
 {
     // Stops the loop in main to stop new requests from being accepted
-	loop = 0;
+	loop = false;
 
     CloseFds();
 
@@ -71,16 +72,16 @@ void Handler(int signal)
  */
 void ProcessPacket(unsigned char *data, int length)
 {
-    packetValidated = 1;
+    packetValidated = true;
 
     // Validate the magic byte field
     if (data[0] != MAGIC_BYTE)
     {
-        if (debug == 1) printf("Magic Byte Error. Received %02x, expecting %02x\n", data[0], MAGIC_BYTE);
-        packetValidated = 0;
+        if (debug) printf("Magic Byte Error. Received %02x, expecting %02x\n", data[0], MAGIC_BYTE);
+        packetValidated = false;
     }
 
-    if (packetValidated == 1)
+    if (packetValidated)
     {
         // Validate the padding in the header
         for (int i = 1; i < HEADER_SIZE; i++)
@@ -90,17 +91,17 @@ void ProcessPacket(unsigned char *data, int length)
 
             if ((i == 1 || i > 3 && i < 8) && data[i] != PADDING)
             {
-                if (debug == 1) printf("Padding Error. Received %02x, expecting %02x\n", data[i], PADDING);
-                packetValidated = 0;
+                if (debug) printf("Padding Error. Received %02x, expecting %02x\n", data[i], PADDING);
+                packetValidated = false;
                 break;
             }
             
             // Stop the loop if the packet is not valid
-            if (packetValidated == 0) break;
+            if (packetValidated) break;
         }
     }
 
-    if (packetValidated == 1)
+    if (packetValidated)
     {
         // Validate data length in the header
         uint16_t data_length = (data[2] << 8) + data[3]; // unsigned + network byte order
@@ -108,12 +109,12 @@ void ProcessPacket(unsigned char *data, int length)
 
         if (data_length != acc_data_length)
         {
-            if (debug == 1) printf("Data Length Error. Received %u, expecting %d\n", data_length, acc_data_length);
-            packetValidated = 0;
+            if (debug) printf("Data Length Error. Received %u, expecting %d\n", data_length, acc_data_length);
+            packetValidated = false;
         }
     }
 
-    printf(packetValidated == 1 ? "Packet %d validated!\n\n" : "Packet %d not validated!\n\n", packetCount);
+    printf(packetValidated ? "Packet %d validated!\n\n" : "Packet %d not validated!\n\n", packetCount);
 
     packetCount++;
 }
@@ -148,14 +149,14 @@ void SendPacket(unsigned char *data, int length, int client)
  */
 void PrintPacket(const unsigned char *data, int length)
 {
-    printf("\n === PACKET %d HEADER ===\n", packetCount);
+    printf("\n === PACKET %ld HEADER ===\n", packetCount);
 
     for (int i = 0; i < HEADER_SIZE; i++)
     {
         printf("%02x ", data[i]);
     }
 
-    printf("\n === PACKET %d DATA == \n", packetCount);
+    printf("\n === PACKET %ld DATA == \n", packetCount);
     // Decode Packet Data (Skipping over the header)
     int data_bytes = length - HEADER_SIZE;
     const unsigned char *payload = data + HEADER_SIZE;
@@ -223,7 +224,7 @@ int main(int argc, char *argv[])
     {
         if (strcmp(argv[1], "-d") == 0) 
         {
-            debug = 1;
+            debug = true;
             printf("Debug: ON\n");
         }
         else
@@ -316,7 +317,7 @@ int main(int argc, char *argv[])
                     recvlen = read(sourceConn, buffer, sizeof(buffer));
                     printf("Received packet %d (%d bytes)\n", packetCount, recvlen);
 
-                    if (debug == 1) PrintPacket(buffer, recvlen);
+                    if (debug) PrintPacket(buffer, recvlen);
                     ProcessPacket(buffer, recvlen);
                 }
                 else if (i == destSocket)
@@ -326,7 +327,7 @@ int main(int argc, char *argv[])
                     printf("Dest connection accepted from %s:%d\n", inet_ntoa(destClientAddr.sin_addr), ntohs(destClientAddr.sin_port));
                     
                     // Only send the packet to dest clients if the packet has been validated
-                    if (packetValidated == 1) SendPacket(buffer, recvlen, destConn);
+                    if (packetValidated) SendPacket(buffer, recvlen, destConn);
                 }
             }
         }

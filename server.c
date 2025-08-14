@@ -22,6 +22,7 @@
 #define MAGIC_BYTE 0xCC
 #define HEADER_SIZE 8
 #define PADDING 0x00
+#define BINARY_LEN 8
 
 #pragma endregion
 #pragma region Global Variables
@@ -62,10 +63,50 @@ void Handler(int signal)
 #pragma region Process Packet
 
 /**
+ * Utility method for converting an unsigned integer to a binary array representation.
+ * 
+ * Adapted from: https://stackoverflow.com/a/31578829.
+ * 
+ * @param[in] value The unsigned integer to convert.
+ * @param[in] count The length of the binary array.
+ * @param[out] binArray The binary array representation of the unsigned integer.
+ * 
+ */
+void UIntToBinArray(unsigned int value, int count, int* binArray)
+{
+    unsigned int mask = 1U << (count-1);
+
+    for (int i = 0; i < count; i++)
+    {
+        binArray[i] = (value & mask) ? 1 : 0;
+        value <<= 1;
+    }
+}
+
+/**
+ * Utility function to add two numbers together in one's complement.
+ * 
+ * Adapted from: https://stackoverflow.com/a/67358741
+ * 
+ * @param[in] a The first number in the addition.
+ * @param[in] b The second number in the addition.
+ */
+uint16_t OnesComplementSum(uint16_t a, uint16_t b)
+{
+    uint32_t sum = a + b;
+    return (sum & 0xFFFF) + (sum >> 16);
+}
+
+/**
  * Determines whether a packet is valid or not by the given rules:
- * 1) Magic byte must be correct
- * 2) Data length must match actual length of the data
- * 3) Header format is correct
+ * 
+ * 1) Magic byte must be correct.
+ * 
+ * 2) Data length must match actual length of the data.
+ * 
+ * 3) Header format is correct.
+ * 
+ * 4) Checksum is correct if the sensitive bit is 1.
  * 
  * @param[in] data The pointer to the packet that was read from the source socket.
  * @param[in] length The length (in bytes) of the packet.
@@ -81,23 +122,66 @@ void ProcessPacket(unsigned char *data, int length)
         packetValidated = false;
     }
 
+    // Check the options field for whether the message is sensitive or not
     if (packetValidated)
     {
-        // Validate the padding in the header
-        for (int i = 1; i < HEADER_SIZE; i++)
-        {
-            // Data length field, skip for now
-            if (i == 2 || i == 3) continue;
+        int digits[8];
+        UIntToBinArray(data[1], 8, digits);
 
-            if ((i == 1 || i > 3 && i < 8) && data[i] != PADDING)
+        // Validate options padding
+        for (int i = 2; i < 8; i++)
+        {
+            if (digits[i] != PADDING)
             {
-                if (debug) printf("Padding Error. Received %02x, expecting %02x\n", data[i], PADDING);
+                if (debug) printf("Padding Error. Received %02x, expecting %02x\n", digits[i], PADDING);
                 packetValidated = false;
                 break;
             }
+        }
+
+        if (packetValidated && digits[1] == 1)
+        {
+            // Compute and validate the checksum
+
+            uint16_t checksum = (data[4] << 8) + data[5]; // unsigned + network byte order
             
-            // Stop the loop if the packet is not valid
-            if (packetValidated) break;
+            // Keep track of original checksum to modify 'data' after computing checksum
+            uint16_t checksum1 = data[4];
+            uint16_t checksum2 = data[5];
+            
+            // "For purposes of computing the checksum, the value of the checksum field is filled with `0xCC` bytes."
+            data[4] = MAGIC_BYTE;
+            data[5] = MAGIC_BYTE;
+
+            // Compute the checksum
+            uint16_t prevValue = 0x00;
+            for (int i = 0; i < length; i += 2)
+            {
+                prevValue = OnesComplementSum(prevValue, (data[i] << 8) + data[i+1]);
+            }
+            
+            // Invert the bits (one's complement)
+            uint16_t computedChecksum = ~prevValue;
+
+            // Set the original checksum back
+            data[4] = checksum1;
+            data[5] = checksum2;
+
+            if (computedChecksum != checksum)
+            {
+                if (debug) printf("Checksum Error. Received %04x, expecting %04x\n", checksum, computedChecksum);
+                packetValidated = false;
+            }
+        }
+    }
+
+    if (packetValidated)
+    {
+        // Validate the padding in the header
+        if (data[6] != PADDING || data[7] != PADDING)
+        {
+            if (debug) printf("Padding Error. Received %02x, expecting %02x\n", data[6] != PADDING ? data[6] : data[7], PADDING);
+            packetValidated = false;
         }
     }
 
@@ -141,8 +225,9 @@ void SendPacket(unsigned char *data, int length, int client)
 #pragma region Print Packet
 
 /**
- * Utility/Debugging method for printing raw packet data
- * Adapted from: University coursework
+ * Utility/Debugging method for printing raw packet data.
+ * 
+ * Adapted from: University coursework.
  * 
  * @param[in] data The pointer to the packet that was read from the source socket.
  * @param[in] length The length (in bytes) of the packet.

@@ -30,14 +30,14 @@
 int g_packet_count = 0,
     g_socket_count = 0;
 
-bool g_packet_validated = true,
+bool g_packet_validated,
     g_debug = false;
 
 volatile bool g_loop = true;
 
 // File descriptors for source & dest sockets and connections
 int g_source_sock, g_dest_sock;
-int g_source_conn, gDestConn;
+int g_source_conn, g_dest_conn;
 
 #pragma endregion
 #pragma region Server Close
@@ -48,7 +48,7 @@ void close_fds()
     close(g_source_sock);
     close(g_dest_sock);
     close(g_source_conn);
-    close(gDestConn);
+    close(g_dest_conn);
 }
 
 // Called when the program receives 'SIGINT'
@@ -459,11 +459,11 @@ int main(int argc, char *argv[])
             else if (events[i].data.fd == g_dest_sock)
             {
                 // New dest connection (to write to)
-                gDestConn = accept(g_dest_sock, (struct sockaddr *)&dest_client_addr, &dest_client_addr_len);
+                g_dest_conn = accept(g_dest_sock, (struct sockaddr *)&dest_client_addr, &dest_client_addr_len);
                 printf("Dest connection accepted from %s:%d\n", inet_ntoa(dest_client_addr.sin_addr), ntohs(dest_client_addr.sin_port));
                 
                 // Only send the packet to dest clients if the packet has been validated
-                if (g_packet_validated) send_packet(buffer, recvlen, gDestConn);
+                if (g_packet_validated) send_packet(buffer, recvlen, g_dest_conn);
             }
         }
     }

@@ -15,22 +15,22 @@ To build and compile the server, enter:
 ```
 $ make
 ```
+
 ## Run
 To run the server, enter:
 ```
 $ ./server
 ```
-The server can also be started using any of the below optional flags for debugging & verification information:
+The server can also be started using any of the below optional flags for debugging & verification information.
 
+**Information about the packet validation process is output:**
 ```
 $ ./server -d
 ```
-Information about the packet validation process is output.
-
+**The raw packet is output (header + packet data):**
 ```
 $ ./server -p
 ```
-The raw packet is output (header + packet data).
 
 ## Verification
 Details of:

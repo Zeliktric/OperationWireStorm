@@ -27,39 +27,39 @@
 #pragma endregion
 #pragma region Global Variables
 
-int gPacketCount = 0,
-    gSocketCount = 0;
+int g_packet_count = 0,
+    g_socket_count = 0;
 
-bool gPacketValidated = true,
-    gDebug = false;
+bool g_packet_validated = true,
+    g_debug = false;
 
-volatile bool gLoop = true;
+volatile bool g_loop = true;
 
 // File descriptors for source & dest sockets and connections
-int gSourceSocket, gDestSocket;
-int gSourceConn, gDestConn;
+int g_source_sock, g_dest_sock;
+int g_source_conn, gDestConn;
 
 #pragma endregion
 #pragma region Server Close
 
 // Closes all of the file descriptors to avoid leaks
-void CloseFds()
+void close_fds()
 {
-    close(gSourceSocket);
-    close(gDestSocket);
-    close(gSourceConn);
+    close(g_source_sock);
+    close(g_dest_sock);
+    close(g_source_conn);
     close(gDestConn);
 }
 
 // Called when the program receives 'SIGINT'
-void Handler(int signal)
+void handler(int signal)
 {
-    // Stops the gLoop in main to stop new requests from being accepted
-	gLoop = false;
+    // Stops the g_loop in main to stop new requests from being accepted
+	g_loop = false;
 
-    CloseFds();
+    close_fds();
 
-    printf("\nServer stopped.\n");
+    printf("\nServer Stopped.\n");
 }
 
 #pragma endregion
@@ -72,16 +72,16 @@ void Handler(int signal)
  * 
  * @param[in] value The unsigned integer to convert.
  * @param[in] count The length of the binary array.
- * @param[out] binArray The binary array representation of the unsigned integer.
+ * @param[out] bin_array The binary array representation of the unsigned integer.
  * 
  */
-void UIntToBinArray(uint16_t value, int count, int* binArray)
+void uint_to_bin_array(uint16_t value, int count, int* bin_array)
 {
     uint16_t mask = 1U << (count-1);
 
     for (int i = 0; i < count; i++)
     {
-        binArray[i] = (value & mask) ? 1 : 0;
+        bin_array[i] = (value & mask) ? 1 : 0;
         value <<= 1;
     }
 }
@@ -94,7 +94,7 @@ void UIntToBinArray(uint16_t value, int count, int* binArray)
  * @param[in] a The first number in the addition.
  * @param[in] b The second number in the addition.
  */
-uint16_t OnesComplementSum(uint16_t a, uint16_t b)
+uint16_t ones_complement_sum(uint16_t a, uint16_t b)
 {
     uint32_t sum = a + b; // uint32_t to allow for potential overflow
     return (sum & 0xFFFF) + (sum >> 16);
@@ -106,7 +106,7 @@ uint16_t OnesComplementSum(uint16_t a, uint16_t b)
  * @param[in] epfd The epoll file descriptor.
  * @param[in] fd The file descriptor of the socket to add.
  */
-void AddSocket(int epfd, int fd)
+void add_socket(int epfd, int fd)
 {
     struct epoll_event event;
 
@@ -114,7 +114,7 @@ void AddSocket(int epfd, int fd)
     event.data.fd = fd;
     epoll_ctl(epfd, EPOLL_CTL_ADD, fd, &event);
 
-    gSocketCount++;
+    g_socket_count++;
 }
 
 #pragma endregion
@@ -134,39 +134,39 @@ void AddSocket(int epfd, int fd)
  * @param[in] data The pointer to the packet that was read from the source socket.
  * @param[in] length The length (in bytes) of the packet.
  */
-void ProcessPacket(unsigned char *data, int length)
+void process_packet(unsigned char *data, int length)
 {
-    gPacketValidated = true;
+    g_packet_validated = true;
 
     // Validate the magic byte field
     if (data[0] != MAGIC_BYTE)
     {
-        if (gDebug) printf("Magic Byte Error. Received %02x, expecting %02x\n", data[0], MAGIC_BYTE);
-        gPacketValidated = false;
+        if (g_debug) printf("Magic Byte Error: Received %02x, expecting %02x\n", data[0], MAGIC_BYTE);
+        g_packet_validated = false;
     }
-    else if (gDebug) printf("Magic Byte Validated (%02x).\n", data[0]);
+    else if (g_debug) printf("Magic Byte Validated (%02x)\n", data[0]);
 
     // Check the options field for whether the message is sensitive or not
-    if (gPacketValidated)
+    if (g_packet_validated)
     {
         int digits[8];
-        UIntToBinArray(data[1], 8, digits);
+        uint_to_bin_array(data[1], 8, digits);
 
-        printf("Options Bit '1' = %d. %s\n", digits[1], digits[1] == 1 ? "Computing and validating checksum..." : "");
+        printf("Options Bit '1' = %d%s\n", digits[1], digits[1] == 1 ? ". Computing and validating checksum..." : "");
 
         // Validate options padding
         for (int i = 2; i < 8; i++)
         {
             if (digits[i] != PADDING)
             {
-                if (gDebug) printf("Options Bit '%d' Padding Error. Received %01x, expecting %01x\n", i, digits[i], PADDING);
-                gPacketValidated = false;
+                if (g_debug) printf("Options Bit '%d' Padding Error: Received %01x, expecting %01x\n", i, digits[i], PADDING);
+                g_packet_validated = false;
                 break;
             }
-            else if (gDebug) printf("Options Bit '%d' Padding Vaidated (%01x).\n", i, digits[i]);
+            else if (g_debug) printf("Options Bit '%d' Padding Vaidated (%01x)\n", i, digits[i]);
         }
 
-        if (gPacketValidated && digits[1] == 1)
+        if (g_packet_validated && digits[1] == 1)
         {
             // Compute and validate the checksum
 
@@ -181,40 +181,40 @@ void ProcessPacket(unsigned char *data, int length)
             data[5] = MAGIC_BYTE;
 
             // Compute the checksum
-            uint16_t prevValue = 0x00;
+            uint16_t prev_value = 0x00;
             for (int i = 0; i < length; i += 2)
             {
-                prevValue = OnesComplementSum(prevValue, (data[i] << 8) + data[i+1]);
+                prev_value = ones_complement_sum(prev_value, (data[i] << 8) + data[i+1]);
             }
             
             // Invert the bits (one's complement)
-            uint16_t computedChecksum = ~prevValue;
+            uint16_t computed_checksum = ~prev_value;
 
             // Set the original checksum back
             data[4] = checksum1;
             data[5] = checksum2;
 
-            if (computedChecksum != checksum)
+            if (computed_checksum != checksum)
             {
-                if (gDebug) printf("Checksum Error. Received %04x, expecting %04x\n", checksum, computedChecksum);
-                gPacketValidated = false;
+                if (g_debug) printf("Checksum Error: Received %04x, expecting %04x\n", checksum, computed_checksum);
+                g_packet_validated = false;
             }
-            else if (gDebug) printf("Checksum Validated (%04x).\n", checksum);
+            else if (g_debug) printf("Checksum Validated (%04x)\n", checksum);
         }
     }
 
-    if (gPacketValidated)
+    if (g_packet_validated)
     {
         // Validate the padding in the header
         if (data[6] != PADDING || data[7] != PADDING)
         {
-            if (gDebug) printf("Padding Error. Received %02x, expecting %02x\n", data[6] != PADDING ? data[6] : data[7], PADDING);
-            gPacketValidated = false;
+            if (g_debug) printf("Padding Error: Received %02x, expecting %02x\n", data[6] != PADDING ? data[6] : data[7], PADDING);
+            g_packet_validated = false;
         }
-        else if (gDebug) printf("Padding Validated (%02x).\n", data[6] != PADDING ? data[6] : data[7]);
+        else if (g_debug) printf("Padding Validated (%02x)\n", data[6] != PADDING ? data[6] : data[7]);
     }
 
-    if (gPacketValidated)
+    if (g_packet_validated)
     {
         // Validate data length in the header
         uint16_t data_length = (data[2] << 8) + data[3]; // unsigned + network byte order
@@ -222,15 +222,15 @@ void ProcessPacket(unsigned char *data, int length)
 
         if (data_length != acc_data_length)
         {
-            if (gDebug) printf("Data Length Error. Received %u, expecting %d.\n", data_length, acc_data_length);
-            gPacketValidated = false;
+            if (g_debug) printf("Data Length Error: Received %u, expecting %d\n", data_length, acc_data_length);
+            g_packet_validated = false;
         }
-        else if (gDebug) printf("Data Length Validated (%u).\n", data_length);
+        else if (g_debug) printf("Data Length Validated (%u)\n", data_length);
     }
 
-    printf(gPacketValidated ? "Packet %d validated!\n\n" : "Packet %d not validated!\n\n", gPacketCount);
+    printf(g_packet_validated ? "Packet %d Validated!\n\n" : "Packet %d Not Validated!\n\n", g_packet_count);
 
-    gPacketCount++;
+    g_packet_count++;
 }
 
 #pragma endregion
@@ -243,12 +243,12 @@ void ProcessPacket(unsigned char *data, int length)
  * @param[in] length The length (in bytes) of the packet.
  * @param[in] client The file descriptor of the client to send the packet to.
  */
-void SendPacket(unsigned char *data, int length, int client)
+void send_packet(unsigned char *data, int length, int client)
 {
     ssize_t fs = send(client, data, length, MSG_NOSIGNAL);
     printf("Sent data to: '%d' (%d bytes)\n\n", client, length);
 
-    if (fs == -1) printf("SendPacket Error: %s (%d)\n", strerror(errno), errno);
+    if (fs == -1) printf("Error: send_packet failed: %s (%d)\n", strerror(errno), errno);
 }
 
 #pragma endregion
@@ -262,16 +262,16 @@ void SendPacket(unsigned char *data, int length, int client)
  * @param[in] data The pointer to the packet that was read from the source socket.
  * @param[in] length The length (in bytes) of the packet.
  */
-void PrintPacket(unsigned char *data, int length)
+void print_packet(unsigned char *data, int length)
 {
-    printf(" === PACKET %ld HEADER ===\n", gPacketCount);
+    printf(" === PACKET %ld HEADER ===\n", g_packet_count);
 
     for (int i = 0; i < HEADER_SIZE; i++)
     {
         printf("%02x ", data[i]);
     }
 
-    printf("\n === PACKET %ld DATA == \n", gPacketCount);
+    printf("\n === PACKET %ld DATA == \n", g_packet_count);
     // Decode Packet Data (Skipping over the header)
     int data_bytes = length - HEADER_SIZE;
     const unsigned char *payload = data + HEADER_SIZE;
@@ -322,15 +322,15 @@ void PrintPacket(unsigned char *data, int length)
 int main(int argc, char *argv[])
 {
     // Addresses for the source & dest sockets and clients
-    struct sockaddr_in sourceAddr, destAddr, sourceClientAddr, destClientAddr;
-    socklen_t sourceClientAddrLen = sizeof(sourceClientAddr);
-    socklen_t destClientAddrLen = sizeof(destClientAddr);
+    struct sockaddr_in source_addr, dest_addr, source_client_addr, dest_client_addr;
+    socklen_t source_client_addr_len = sizeof(source_client_addr);
+    socklen_t dest_client_addr_len = sizeof(dest_client_addr);
     
     // Initialise buffer
     unsigned char buffer[BUFFER_SIZE];
     int recvlen;
 
-    bool debugPrint = false;
+    bool debug_print = false;
 
     // Verifying command-line arguments
     if (argc >= 1 && argc <= 3)
@@ -339,17 +339,17 @@ int main(int argc, char *argv[])
         {
             if (strcmp(argv[i], "-d") == 0) 
             {
-                gDebug = true;
+                g_debug = true;
                 printf("Debug: Packet Validation Information\n");
             }
             else if (strcmp(argv[i], "-p") == 0) 
             {
-                debugPrint = true;
+                debug_print = true;
                 printf("Debug: Raw Packet Data\n");
             }
             else
             {
-                printf("Error: Invalid command-line argument. Expecting one of '-d', '-p'.\n");
+                printf("Error: Invalid command-line argument. Expecting one of '-d', '-p'\n");
                 exit(EXIT_FAILURE);
             }
         }
@@ -361,54 +361,54 @@ int main(int argc, char *argv[])
     }
 
     // Create source & dest sockets
-    if ((gSourceSocket = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+    if ((g_source_sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
     {
 		printf("Error: cannot create source socket\n");
 		exit(EXIT_FAILURE);
 	}
-    if ((gDestSocket = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+    if ((g_dest_sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
     {
 		printf("Error: cannot create dest socket\n");
 		exit(EXIT_FAILURE);
 	}
     
     // Set source address with the source port
-    sourceAddr.sin_family = AF_INET;
-    sourceAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-    sourceAddr.sin_port = htons(SOURCE_PORT);
+    source_addr.sin_family = AF_INET;
+    source_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    source_addr.sin_port = htons(SOURCE_PORT);
 
     // Set dest address with the dest port
-    destAddr.sin_family = AF_INET;
-    destAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-    destAddr.sin_port = htons(DEST_PORT);
+    dest_addr.sin_family = AF_INET;
+    dest_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    dest_addr.sin_port = htons(DEST_PORT);
 
     // Bind source & dest sockets with their respective addresses
-    if (bind(gSourceSocket, (struct sockaddr *)&sourceAddr, sizeof(sourceAddr)) < 0)
+    if (bind(g_source_sock, (struct sockaddr *)&source_addr, sizeof(source_addr)) < 0)
     {
 		printf("Error: source bind failed: %s\n", strerror(errno));
 		exit(EXIT_FAILURE);
 	}
-    if (bind(gDestSocket, (struct sockaddr *)&destAddr, sizeof(destAddr)) < 0)
+    if (bind(g_dest_sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr)) < 0)
     {
 		printf("Error: dest bind failed: %s\n", strerror(errno));
 		exit(EXIT_FAILURE);
 	}
 
     // Start listening on source & dest sockets
-    if (listen(gSourceSocket, 0) < 0)
+    if (listen(g_source_sock, 0) < 0)
     {
         printf("Error: source listen failed: %s\n", strerror(errno));
         exit(EXIT_FAILURE);
     }
-    if (listen(gDestSocket, SOMAXCONN) < 0)
+    if (listen(g_dest_sock, SOMAXCONN) < 0)
     {
         printf("Error: dest listen failed: %s\n", strerror(errno));
         exit(EXIT_FAILURE);
     }
 
-    signal(SIGINT, Handler);
+    signal(SIGINT, handler);
 
-    printf("Server started.\nWaiting on port %d and %d\n\n", SOURCE_PORT, DEST_PORT);
+    printf("Server Started.\nWaiting on port %d and %d\n\n", SOURCE_PORT, DEST_PORT);
 
     int epfd = epoll_create1(0);
     if (epfd < 0)
@@ -417,22 +417,22 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    AddSocket(epfd, gSourceSocket);
-    AddSocket(epfd, gDestSocket);
+    add_socket(epfd, g_source_sock);
+    add_socket(epfd, g_dest_sock);
 
-    struct epoll_event events[gSocketCount];
+    struct epoll_event events[g_socket_count];
 
-    while (gLoop)
+    while (g_loop)
     {   
         // Wait for a file descriptor to have new activity (incoming connection)
-        int n = epoll_wait(epfd, events, gSocketCount, -1);
+        int n = epoll_wait(epfd, events, g_socket_count, -1);
         if (n < 0)
         {
             // Ignore the 'Interrupted system call' error when the user initiates it
             if (errno == EINTR) break;
 
             printf("Error: epoll_wait failed: %s\n", strerror(errno));
-            CloseFds();
+            close_fds();
             
             exit(EXIT_FAILURE);
         }
@@ -440,30 +440,30 @@ int main(int argc, char *argv[])
         for (int i = 0; i < n; i++)
         {
             // Check whether the event is EPOLLIN
-            bool incomingConn = events[i].events & EPOLLIN;
-            if (!incomingConn) continue;
+            bool incoming_conn = events[i].events & EPOLLIN;
+            if (!incoming_conn) continue;
 
-            if (events[i].data.fd == gSourceSocket) 
+            if (events[i].data.fd == g_source_sock) 
             {
                 // New source connection (to read from)
-                gSourceConn = accept(gSourceSocket, (struct sockaddr *)&sourceClientAddr, &sourceClientAddrLen);
-                printf("(%d) Source connection accepted from %s:%d\n", i, inet_ntoa(sourceClientAddr.sin_addr), ntohs(sourceClientAddr.sin_port));
+                g_source_conn = accept(g_source_sock, (struct sockaddr *)&source_client_addr, &source_client_addr_len);
+                printf("Source connection accepted from %s:%d\n", inet_ntoa(source_client_addr.sin_addr), ntohs(source_client_addr.sin_port));
                 
                 // Read the packet sent
-                recvlen = read(gSourceConn, buffer, sizeof(buffer));
-                printf("Received packet %d (%d bytes)\n\n", gPacketCount, recvlen);
+                recvlen = read(g_source_conn, buffer, sizeof(buffer));
+                printf("Received packet %d (%d bytes)\n\n", g_packet_count, recvlen);
 
-                if (debugPrint) PrintPacket(buffer, recvlen);
-                ProcessPacket(buffer, recvlen);
+                if (debug_print) print_packet(buffer, recvlen);
+                process_packet(buffer, recvlen);
             }
-            else if (events[i].data.fd == gDestSocket)
+            else if (events[i].data.fd == g_dest_sock)
             {
                 // New dest connection (to write to)
-                gDestConn = accept(gDestSocket, (struct sockaddr *)&destClientAddr, &destClientAddrLen);
-                printf("(%d) Dest connection accepted from %s:%d\n", i, inet_ntoa(destClientAddr.sin_addr), ntohs(destClientAddr.sin_port));
+                gDestConn = accept(g_dest_sock, (struct sockaddr *)&dest_client_addr, &dest_client_addr_len);
+                printf("Dest connection accepted from %s:%d\n", inet_ntoa(dest_client_addr.sin_addr), ntohs(dest_client_addr.sin_port));
                 
                 // Only send the packet to dest clients if the packet has been validated
-                if (gPacketValidated) SendPacket(buffer, recvlen, gDestConn);
+                if (g_packet_validated) send_packet(buffer, recvlen, gDestConn);
             }
         }
     }

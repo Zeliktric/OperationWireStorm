@@ -264,14 +264,14 @@ void send_packet(unsigned char *data, int length, int client)
  */
 void print_packet(unsigned char *data, int length)
 {
-    printf(" === PACKET %ld HEADER ===\n", g_packet_count);
+    printf(" === PACKET %d HEADER ===\n", g_packet_count);
 
     for (int i = 0; i < HEADER_SIZE; i++)
     {
         printf("%02x ", data[i]);
     }
 
-    printf("\n === PACKET %ld DATA == \n", g_packet_count);
+    printf("\n === PACKET %d DATA == \n", g_packet_count);
     // Decode Packet Data (Skipping over the header)
     int data_bytes = length - HEADER_SIZE;
     const unsigned char *payload = data + HEADER_SIZE;

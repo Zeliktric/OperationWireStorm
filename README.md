@@ -21,16 +21,16 @@ To run the server, enter:
 $ ./server
 ```
 The server can also be started using any of the below optional flags for debugging & verification information:
+
 ```
 $ ./server -d
 ```
-Packet validation information are output.
+Information about the packet validation process is output.
+
 ```
 $ ./server -p
 ```
-Raw packet data is output.
-
-where packet validation successes will also be output to the terminal.
+The raw packet is output (header + packet data).
 
 ## Verification
 Details of:

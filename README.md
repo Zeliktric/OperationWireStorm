@@ -15,7 +15,7 @@ To build and compile the server, enter:
 ```
 $ make
 ```
-
+## Run
 To run the server, enter:
 ```
 $ ./server

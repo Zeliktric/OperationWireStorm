@@ -20,12 +20,17 @@ To run the server, enter:
 ```
 $ ./server
 ```
-
-The server can also be started in "debug" mode:
+The server can also be started using any of the below optional flags for debugging & verification information:
 ```
 $ ./server -d
 ```
-where raw packet data and packet validation errors will be output to the terminal.
+Packet validation information are output.
+```
+$ ./server -p
+```
+Raw packet data is output.
+
+where packet validation successes will also be output to the terminal.
 
 ## Verification
 Details of:

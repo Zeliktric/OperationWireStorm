@@ -3,7 +3,7 @@
 ## Prerequisites
 Download `gcc`:
 ```
-$  sudo apt install gcc
+$ sudo apt install gcc
 ```
 Download `make`:
 ```
@@ -30,6 +30,10 @@ $ ./server -d
 **The raw packet is output (header + packet data):**
 ```
 $ ./server -p
+```
+**Both flags can be used:**
+```
+$ ./server -d -p
 ```
 
 ## Verification

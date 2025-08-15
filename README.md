@@ -1,5 +1,7 @@
 # Operation WIRE STORM - RELOADED Submission
 
+[Final commit for task 1](https://github.com/Zeliktric/OperationWireStorm/commit/5a29ba77cefb53d826bf59b06bdebce16db38dfc)
+
 ## Prerequisites
 Download `gcc`:
 ```

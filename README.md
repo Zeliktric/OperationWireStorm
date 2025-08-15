@@ -47,3 +47,5 @@ Details of:
 - Major errors
 
 are automatically output to the terminal.
+
+Tested and verified (all tests passed) on Ubuntu 24.04

@@ -13,6 +13,10 @@ $ sudo apt install make
 ```
 
 ## Build
+Make sure you are in the OperationWireStorm directory:
+```
+$ cd OperationWireStorm
+```
 To build and compile the server, enter:
 ```
 $ make
